@@ -30,7 +30,7 @@ jobs:
 
     - name: Build Docker Image
       run: |
-       docker build -t gatekeeper:public_image -f verification/dockerfile verification
+       docker build -t gatekeeper:public_image -f verfication/dockerfile verfication
 
 
     - name: Tag Docker Image
