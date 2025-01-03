@@ -1,0 +1,49 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - master  # Trigger workflow on pushes to the main branch
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS CLI
+      run: |
+        aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws configure set default.region me-south-1
+
+    - name: Log in to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Ensure ECR Repository Exists
+      run: |
+        aws ecr describe-repositories --repository-names gatekeeper || \
+        aws ecr create-repository --repository-name gatekeeper
+
+    - name: Build Docker Image
+      run: |
+       docker build -t gatekeeper:public_image -f verfication/dockerfile verfication
+
+
+    - name: Tag Docker Image
+      run: |
+        docker tag gatekeeper:public_image 307946663588.dkr.ecr.me-south-1.amazonaws.com/gatekeeper:public_image
+
+    - name: Push Docker Image to ECR
+      run: |
+        docker push 307946663588.dkr.ecr.me-south-1.amazonaws.com/gatekeeper:public_image
+    - name: Trigger EC2 Instance to Update
+      run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=instanceIds,Values=i-0348ae98c336c23f3" \
+            --comment "Pull latest Docker image and restart container" \
+            --parameters '{"commands":["sudo docker pull 307946663588.dkr.ecr.me-south-1.amazonaws.com/gatekeeper:public_image","sudo docker stop public_api || true","sudo docker rm public_api || true","sudo docker run -d --name public_api -p 3000:3000 --restart unless-stopped 307946663588.dkr.ecr.me-south-1.amazonaws.com/gatekeeper:public_image"]}'
