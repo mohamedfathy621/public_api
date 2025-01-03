@@ -15,7 +15,7 @@ from io import BytesIO
 from django.conf import settings
 from .models import logged_in_users
 # Create your views here.
-back_path='http://127.0.0.1:8000/transformer/'
+back_path='http://10.0.151.240:8000/transformer/'
 SECRET_KEY = settings.SECRET_KEY
 def generate_jwt(user):
     payload = {
