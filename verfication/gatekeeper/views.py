@@ -13,8 +13,9 @@ import json
 import re
 from io import BytesIO
 from django.conf import settings
+from .models import logged_in_users
 # Create your views here.
-back_path='http://10.0.151.240:8000/transformer/'
+back_path='http://127.0.0.1:8000/transformer/'
 SECRET_KEY = settings.SECRET_KEY
 def generate_jwt(user):
     payload = {
@@ -60,16 +61,36 @@ def Log_in(request):
                data = json.loads(request.body)
                username = data.get("username")
                password = data.get("password")
-               user = authenticate(request, username=username, password=password)
-               if user is not None:
-                    token = generate_jwt(user)
-                    return JsonResponse({"message":"log in succuessfull","token":{'token':token}}, status=200)
+               logged_in=logged_in_users.objects.filter(username=username)
+               if not logged_in:
+                    user = authenticate(request, username=username, password=password)
+                    if user is not None:
+                         new_user=logged_in_users(username=username)
+                         new_user.save()
+                         token = generate_jwt(user)
+                         return JsonResponse({"message":"log in succuessfull","token":{'token':token}}, status=200)
+                    else:
+                         
+                         return JsonResponse({"error": "Invalid username or password"}, status=400)
                else:
-                    return JsonResponse({"error": "Invalid username or password"}, status=400)
+                   
+                    return JsonResponse({"error": "user already logged in "}, status=400)  
          except:
                return JsonResponse({"error": "user authentication failed"}, status=400)  
 
-
+@jwt_required
+@csrf_exempt
+def log_out(request):
+     if request.method == "GET":
+          auth_header = request.headers.get('Authorization')
+          token = auth_header.split(" ")[1]
+          payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+          username = payload['username']
+          logged_in=logged_in_users.objects.filter(username=username)
+          if logged_in:
+               logged_in.delete()
+          return JsonResponse({"message": "log out successfull"}, status=200)
+  
 @jwt_required
 @csrf_exempt
 def get_file(request):
@@ -82,7 +103,7 @@ def get_file(request):
                csv_file= request.FILES['file']
                files = {'file': csv_file}
                data = {'username': username}
-               print(username)
+               
                response = requests.post(f'{back_path}file', files=files, data=data)
                data=response.json()
                return JsonResponse({"message":data['message']} , status=200)
@@ -99,7 +120,7 @@ def get_Data(request):
                query=request.POST.get("query", "")
                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
                username = payload['username']
-               print(username)
+               
                data = {'username': username,'query': query}
                response = requests.post(f'{back_path}query', data=data)
                data=response.json()
@@ -167,3 +188,4 @@ def download_sheet(request):
                return response
           except:
                return JsonResponse({"error":'user is not logged in'} , status=400)
+          

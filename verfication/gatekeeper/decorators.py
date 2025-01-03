@@ -8,7 +8,9 @@ SECRET_KEY = settings.SECRET_KEY
 def jwt_required(func):
     @wraps(func)
     def wrapper(request, *args, **kwargs):
+        
         auth_header = request.headers.get('Authorization')
+        
         if not auth_header or not auth_header.startswith("Bearer "):
             return JsonResponse({"error": "Unauthorized"}, status=401)
 

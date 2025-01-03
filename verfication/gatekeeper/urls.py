@@ -10,4 +10,5 @@ urlpatterns = [
     path('query',views.get_Data,name="run queries"),
     path('reload',views.load_latest,name="reload latest datasheet"),
     path('download',views.download_sheet,name="download datasheet"),
+    path('logout',views.log_out,name="log out user"),
 ]
