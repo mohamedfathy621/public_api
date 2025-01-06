@@ -61,21 +61,35 @@ def Log_in(request):
                data = json.loads(request.body)
                username = data.get("username")
                password = data.get("password")
-               logged_in=logged_in_users.objects.filter(username=username)
-               if not logged_in:
+               logged_in=logged_in_users.objects.filter(username=username).first()
+               if logged_in:
+                    token = logged_in.token
+                    try:
+                         payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+                         return JsonResponse({"error": "user already logged in "}, status=400)  
+                    except:
+                         logged_in.delete()
+                         user = authenticate(request, username=username, password=password)
+                         if user is not None:
+                              token = generate_jwt(user)
+                              new_user=logged_in_users(username=username,token=token)
+                              new_user.save()
+                              return JsonResponse({"message":"log in succuessfull","token":{'token':token}}, status=200)
+                         else:
+                              print("here")
+                              return JsonResponse({"error": "Invalid username or password"}, status=400)
+               else:
                     user = authenticate(request, username=username, password=password)
                     if user is not None:
-                         new_user=logged_in_users(username=username)
-                         new_user.save()
                          token = generate_jwt(user)
+                         new_user=logged_in_users(username=username,token=token)
+                         new_user.save()
                          return JsonResponse({"message":"log in succuessfull","token":{'token':token}}, status=200)
                     else:
-                         
-                         return JsonResponse({"error": "Invalid username or password"}, status=400)
-               else:
-                   
-                    return JsonResponse({"error": "user already logged in "}, status=400)  
-         except:
+                         print("here")
+                         return JsonResponse({"error": "Invalid username or password"}, status=400) 
+         except Exception as e:
+               print(e)
                return JsonResponse({"error": "user authentication failed"}, status=400)  
 
 @jwt_required
@@ -84,7 +98,7 @@ def log_out(request):
      if request.method == "GET":
           auth_header = request.headers.get('Authorization')
           token = auth_header.split(" ")[1]
-          payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+          payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
           username = payload['username']
           logged_in=logged_in_users.objects.filter(username=username)
           if logged_in:
@@ -118,7 +132,7 @@ def get_Data(request):
                auth_header = request.headers.get('Authorization')
                token = auth_header.split(" ")[1]
                query=request.POST.get("query", "")
-               payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+               payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
                username = payload['username']
                
                data = {'username': username,'query': query}
@@ -140,7 +154,7 @@ def refresh_token(request):
             return JsonResponse({"error": "Unauthorized"}, status=401)
           token = auth_header.split(" ")[1]
           try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
             exp = payload.get('exp', 0)
             if datetime.utcnow().timestamp() > exp - 900:  
                 new_payload = {
@@ -148,7 +162,7 @@ def refresh_token(request):
                     'username': payload['username'],
                     'exp': datetime.utcnow() + timedelta(hours=3),  # New expiration time
                 }
-                new_token = jwt.encode(new_payload, settings.SECRET_KEY, algorithm='HS256')
+                new_token = jwt.encode(new_payload, SECRET_KEY, algorithm='HS256')
                 return JsonResponse({"token": new_token}, status=200)
             else:
                 return JsonResponse({"message": "Token not yet close to expiry"}, status=200)
@@ -176,7 +190,7 @@ def download_sheet(request):
           try:
                auth_header = request.headers.get('Authorization')
                token = auth_header.split(" ")[1]
-               payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+               payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
                username = payload['username']
                response = requests.post(f'{back_path}download', data={'username':username})
                file_content = BytesIO(response.content)
