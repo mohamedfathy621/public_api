@@ -44,6 +44,6 @@ jobs:
       run: |
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
-            --targets "Key=instanceIds,Values=i-i-07c366232b005ffda" \
+            --targets "Key=instanceIds,Values=i-07c366232b005ffda" \
             --comment "Pull latest Docker image and restart container" \
             --parameters '{"commands":["sudo docker pull 307946663588.dkr.ecr.me-south-1.amazonaws.com/gatekeeper:public_image","sudo docker stop public_api || true","sudo docker rm public_api || true","sudo docker run -d --name public_api -p 3000:3000 --restart unless-stopped 307946663588.dkr.ecr.me-south-1.amazonaws.com/gatekeeper:public_image"]}'
